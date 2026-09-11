@@ -1,83 +1,180 @@
-from datetime import datetime
-from decimal import Decimal
-
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class Address(Base):
-    __tablename__ = "addresses"
+VALID_ADDRESS_TYPES = {
+    "Home",
+    "Work",
+    "Other",
+}
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+
+class AddressCreate(BaseModel):
+    address_line: str = Field(
+        ...,
+        min_length=5,
+        max_length=255,
     )
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "customers.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    city: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
     )
 
-    address_line: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
+    pincode: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
     )
 
-    city: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-        index=True,
+    latitude: float | None = Field(
+        default=None,
+        ge=-90,
+        le=90,
     )
 
-    pincode: Mapped[str] = mapped_column(
-        String(10),
-        nullable=False,
-        index=True,
+    longitude: float | None = Field(
+        default=None,
+        ge=-180,
+        le=180,
     )
 
-    latitude: Mapped[Decimal | None] = mapped_column(
-        Numeric(9, 6),
-        nullable=True,
-    )
-
-    longitude: Mapped[Decimal | None] = mapped_column(
-        Numeric(9, 6),
-        nullable=True,
-    )
-
-    address_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
+    address_type: str = Field(
         default="Other",
     )
 
-    is_default: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        index=True,
+    is_default: bool = False
+
+    @field_validator("address_line", "city")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Field cannot be empty")
+
+        return value
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_pincode(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value.isdigit():
+            raise ValueError("Pincode must contain only digits")
+
+        if len(value) != 6:
+            raise ValueError("Pincode must contain exactly 6 digits")
+
+        return value
+
+    @field_validator("address_type")
+    @classmethod
+    def validate_address_type(cls, value: str) -> str:
+        value = value.strip()
+
+        if value not in VALID_ADDRESS_TYPES:
+            raise ValueError(
+                "Address type must be Home, Work, or Other"
+            )
+
+        return value
+
+
+class AddressUpdate(BaseModel):
+    address_line: str | None = Field(
+        default=None,
+        min_length=5,
+        max_length=255,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
+    city: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
+    pincode: str | None = Field(
+        default=None,
+        min_length=6,
+        max_length=6,
     )
 
-    customer = relationship(
-        "Customer",
-        back_populates="addresses",
+    latitude: float | None = Field(
+        default=None,
+        ge=-90,
+        le=90,
+    )
+
+    longitude: float | None = Field(
+        default=None,
+        ge=-180,
+        le=180,
+    )
+
+    address_type: str | None = None
+
+    is_default: bool | None = None
+
+    @field_validator("address_line", "city")
+    @classmethod
+    def validate_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Field cannot be empty")
+
+        return value
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_pincode(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+
+        value = value.strip()
+
+        if not value.isdigit():
+            raise ValueError("Pincode must contain only digits")
+
+        if len(value) != 6:
+            raise ValueError("Pincode must contain exactly 6 digits")
+
+        return value
+
+    @field_validator("address_type")
+    @classmethod
+    def validate_address_type(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return value
+
+        value = value.strip()
+
+        if value not in VALID_ADDRESS_TYPES:
+            raise ValueError(
+                "Address type must be Home, Work, or Other"
+            )
+
+        return value
+
+
+class AddressResponse(BaseModel):
+    id: int
+    customer_id: int
+    address_line: str
+    city: str
+    pincode: str
+    latitude: float | None
+    longitude: float | None
+    address_type: str
+    is_default: bool
+
+    model_config = ConfigDict(
+        from_attributes=True,
     )

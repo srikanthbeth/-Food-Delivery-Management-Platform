@@ -1,97 +1,313 @@
-from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
-from sqlalchemy import (
-    Boolean,
-    DateTime,
-    ForeignKey,
-    Integer,
-    Numeric,
-    String,
-    Text,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class MenuItem(Base):
-    __tablename__ = "menu_items"
-
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+class MenuItemCreate(BaseModel):
+    restaurant_id: int = Field(
+        ...,
+        gt=0,
     )
 
-    restaurant_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "restaurants.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    category: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
     )
 
-    category: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-        index=True,
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
     )
 
-    name: Mapped[str] = mapped_column(
-        String(150),
-        nullable=False,
-        index=True,
+    description: Optional[str] = Field(
+        None,
+        max_length=1000,
     )
 
-    description: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
+    price: Decimal = Field(
+        ...,
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
     )
 
-    price: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
+    preparation_time: int = Field(
+        ...,
+        gt=0,
     )
 
-    preparation_time: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
+    availability: bool = True
+
+    vegetarian: bool = False
+
+    spicy_level: int = Field(
+        0,
+        ge=0,
+        le=5,
     )
 
-    availability: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=True,
-        index=True,
+    @field_validator("category", "name")
+    @classmethod
+    def validate_text(cls, value: str):
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Field cannot be empty")
+
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value):
+        if value is not None:
+            value = value.strip()
+
+            if not value:
+                return None
+
+        return value
+
+
+class MenuItemUpdate(BaseModel):
+    category: Optional[str] = Field(
+        None,
+        min_length=2,
+        max_length=100,
     )
 
-    vegetarian: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
+    name: Optional[str] = Field(
+        None,
+        min_length=2,
+        max_length=150,
     )
 
-    spicy_level: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        default=0,
+    description: Optional[str] = Field(
+        None,
+        max_length=1000,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
+    price: Optional[Decimal] = Field(
+        None,
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
+    preparation_time: Optional[int] = Field(
+        None,
+        gt=0,
     )
 
-    restaurant = relationship(
-        "Restaurant",
-        backref="menu_items",
+    availability: Optional[bool] = None
+
+    vegetarian: Optional[bool] = None
+
+    spicy_level: Optional[int] = Field(
+        None,
+        ge=0,
+        le=5,
     )
+
+    @field_validator("category", "name")
+    @classmethod
+    def validate_text(cls, value):
+        if value is not None:
+            value = value.strip()
+
+            if not value:
+                raise ValueError("Field cannot be empty")
+
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value):
+        if value is not None:
+            value = value.strip()
+
+            if not value:
+                return None
+
+        return value
+
+from pydantic import BaseModel, ConfigDict
+
+class MenuItemResponse(BaseModel):
+    id: int
+    restaurant_id: int
+    category: str
+    name: str
+    description: str | None
+    price: float
+    preparation_time: int
+    availability: bool
+    vegetarian: bool
+    spicy_level: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+from decimal import Decimal
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class MenuItemCreate(BaseModel):
+    restaurant_id: int = Field(
+        ...,
+        gt=0,
+    )
+
+    category: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+    )
+
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+    )
+
+    description: Optional[str] = Field(
+        None,
+        max_length=1000,
+    )
+
+    price: Decimal = Field(
+        ...,
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    preparation_time: int = Field(
+        ...,
+        gt=0,
+    )
+
+    availability: bool = True
+
+    vegetarian: bool = False
+
+    spicy_level: int = Field(
+        0,
+        ge=0,
+        le=5,
+    )
+
+    @field_validator("category", "name")
+    @classmethod
+    def validate_text(cls, value: str):
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Field cannot be empty")
+
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value):
+        if value is not None:
+            value = value.strip()
+
+            if not value:
+                return None
+
+        return value
+
+
+class MenuItemUpdate(BaseModel):
+    category: Optional[str] = Field(
+        None,
+        min_length=2,
+        max_length=100,
+    )
+
+    name: Optional[str] = Field(
+        None,
+        min_length=2,
+        max_length=150,
+    )
+
+    description: Optional[str] = Field(
+        None,
+        max_length=1000,
+    )
+
+    price: Optional[Decimal] = Field(
+        None,
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    preparation_time: Optional[int] = Field(
+        None,
+        gt=0,
+    )
+
+    availability: Optional[bool] = None
+
+    vegetarian: Optional[bool] = None
+
+    spicy_level: Optional[int] = Field(
+        None,
+        ge=0,
+        le=5,
+    )
+
+    @field_validator("category", "name")
+    @classmethod
+    def validate_text(cls, value):
+        if value is not None:
+            value = value.strip()
+
+            if not value:
+                raise ValueError("Field cannot be empty")
+
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value):
+        if value is not None:
+            value = value.strip()
+
+            if not value:
+                return None
+
+        return value
+
+
+class MenuItemResponse(BaseModel):
+    id: int
+    restaurant_id: int
+    category: str
+    name: str
+    description: str | None
+    price: float
+    preparation_time: int
+    availability: bool
+    vegetarian: bool
+    spicy_level: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================
+# FOOD SEARCH
+# ============================================================
+
+class MenuItemSearchResult(BaseModel):
+    items: list[MenuItemResponse]
+    page: int
+    limit: int
+    total: int
+    pages: int   

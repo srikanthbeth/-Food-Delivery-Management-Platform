@@ -1,67 +1,51 @@
-from datetime import datetime
-
-from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
-class Customer(Base):
-    __tablename__ = "customers"
-
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+class CustomerCreate(BaseModel):
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
     )
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "users.id",
-            ondelete="CASCADE",
-        ),
-        unique=True,
-        nullable=False,
-        index=True,
+    email: EmailStr
+
+    phone: str = Field(
+        ...,
+        min_length=10,
+        max_length=15,
     )
 
-    name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
 
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
-        nullable=False,
-        index=True,
-    )
+        if not value:
+            raise ValueError("Name cannot be empty")
 
-    phone: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
+        return value
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        value = value.strip()
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
+        if not value.isdigit():
+            raise ValueError("Phone must contain only digits")
 
-    user = relationship(
-        "User",
-        back_populates="customer_profile",
-        foreign_keys=[user_id],
-    )
+        if len(value) < 10 or len(value) > 15:
+            raise ValueError("Phone must be between 10 and 15 digits")
 
-    addresses = relationship(
-        "Address",
-        back_populates="customer",
-        cascade="all, delete-orphan",
+        return value
+
+
+class CustomerResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    phone: str
+
+    model_config = ConfigDict(
+        from_attributes=True,
     )

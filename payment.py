@@ -1,87 +1,51 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import (
-    DateTime,
-    Enum as SQLEnum,
-    ForeignKey,
-    Numeric,
-    String,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from database import Base
 from utils.enums import PaymentMethod, PaymentTransactionStatus
 
 
-class Payment(Base):
-    __tablename__ = "payments"
+class PaymentCreate(BaseModel):
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+    amount: Decimal = Field(
+        ...,
+        gt=0,
     )
 
-    order_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "orders.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        unique=True,
-        index=True,
+    payment_method: PaymentMethod
+
+    transaction_id: str = Field(
+        ...,
+        min_length=3,
+        max_length=100,
     )
 
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-    )
+    @field_validator("transaction_id")
+    @classmethod
+    def validate_transaction_id(cls, value: str) -> str:
 
-    payment_method: Mapped[PaymentMethod] = mapped_column(
-        SQLEnum(
-            PaymentMethod,
-            name="payment_method",
-        ),
-        nullable=False,
-    )
+        value = value.strip()
 
-    transaction_id: Mapped[str] = mapped_column(
-        String(100),
-        unique=True,
-        nullable=False,
-        index=True,
-    )
+        if not value:
+            raise ValueError(
+                "Transaction ID cannot be empty"
+            )
 
-    payment_status: Mapped[
-        PaymentTransactionStatus
-    ] = mapped_column(
-        SQLEnum(
-            PaymentTransactionStatus,
-            name="payment_transaction_status",
-        ),
-        nullable=False,
-        default=PaymentTransactionStatus.PENDING,
-        index=True,
-    )
+        return value
 
-    paid_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
-        nullable=True,
-    )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
+class PaymentResponse(BaseModel):
 
-    order = relationship(
-        "Order",
-        back_populates="payment",
-    )
+    id: int
+    order_id: int
+    amount: Decimal
+    payment_method: PaymentMethod
+    transaction_id: str
+    payment_status: PaymentTransactionStatus
+    paid_at: datetime | None
+    created_at: datetime
 
-    refunds = relationship(
-        "Refund",
-        back_populates="payment",
-        cascade="all, delete-orphan",
+    model_config = ConfigDict(
+        from_attributes=True
     )

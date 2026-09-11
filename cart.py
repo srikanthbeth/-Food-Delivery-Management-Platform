@@ -1,49 +1,25 @@
-from datetime import datetime
-
-from sqlalchemy import DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class Cart(Base):
-    __tablename__ = "carts"
+class CartItemCreate(BaseModel):
+    menu_item_id: int = Field(..., gt=0)
+    quantity: int = Field(..., gt=0)
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
-    )
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "customers.id",
-            ondelete="CASCADE",
-        ),
-        unique=True,
-        nullable=False,
-        index=True,
-    )
+class CartItemUpdate(BaseModel):
+    quantity: int = Field(..., gt=0)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
+class CartItemResponse(BaseModel):
+    id: int
+    menu_item_id: int
+    quantity: int
+    unit_price: float
+    item_total: float
 
-    customer = relationship(
-        "Customer",
-        backref="cart",
-    )
 
-    items = relationship(
-        "CartItem",
-        back_populates="cart",
-        cascade="all, delete-orphan",
-    )
+class CartResponse(BaseModel):
+    id: int
+    customer_id: int
+    items: list[CartItemResponse]
+    subtotal: float

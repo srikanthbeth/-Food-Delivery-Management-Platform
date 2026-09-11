@@ -1,102 +1,62 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, CheckConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class Review(Base):
-    __tablename__ = "reviews"
+class ReviewCreate(BaseModel):
+    order_id: int = Field(..., gt=0)
 
-    __table_args__ = (
-        CheckConstraint(
-            "rating >= 1 AND rating <= 5",
-            name="check_review_rating",
-        ),
+    restaurant_id: int | None = Field(
+        default=None,
+        gt=0,
     )
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+    food_item_id: int | None = Field(
+        default=None,
+        gt=0,
     )
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "customers.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    delivery_partner_id: int | None = Field(
+        default=None,
+        gt=0,
     )
 
-    order_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "orders.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    rating: int = Field(
+        ...,
+        ge=1,
+        le=5,
     )
 
-    restaurant_id: Mapped[int | None] = mapped_column(
-        ForeignKey(
-            "restaurants.id",
-            ondelete="CASCADE",
-        ),
-        nullable=True,
-        index=True,
+    review: str | None = Field(
+        default=None,
+        max_length=1000,
     )
 
-    food_item_id: Mapped[int | None] = mapped_column(
-        ForeignKey(
-            "menu_items.id",
-            ondelete="CASCADE",
-        ),
-        nullable=True,
-        index=True,
-    )
+    @field_validator("review")
+    @classmethod
+    def validate_review(cls, value):
+        if value is None:
+            return value
 
-    delivery_partner_id: Mapped[int | None] = mapped_column(
-        ForeignKey(
-            "delivery_partners.id",
-        ),
-        nullable=True,
-        index=True,
-    )
+        value = value.strip()
 
-    rating: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-    )
+        if not value:
+            return None
 
-    review: Mapped[str | None] = mapped_column(
-        String(1000),
-        nullable=True,
-    )
+        return value
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
 
-    customer = relationship(
-        "Customer",
-    )
+class ReviewResponse(BaseModel):
+    id: int
+    customer_id: int
+    order_id: int
+    restaurant_id: int | None
+    food_item_id: int | None
+    delivery_partner_id: int | None
+    rating: int
+    review: str | None
+    created_at: datetime
 
-    order = relationship(
-        "Order",
-    )
-
-    restaurant = relationship(
-        "Restaurant",
-    )
-
-    food_item = relationship(
-        "MenuItem",
-    )
-
-    delivery_partner = relationship(
-        "DeliveryPartner",
+    model_config = ConfigDict(
+        from_attributes=True,
     )

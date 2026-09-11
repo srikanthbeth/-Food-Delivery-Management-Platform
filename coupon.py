@@ -1,89 +1,158 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import (
-    Boolean,
-    Date,
-    DateTime,
-    Numeric,
-    String,
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
 )
-from sqlalchemy.orm import Mapped, mapped_column
-
-from database import Base
 
 
-class Coupon(Base):
-    __tablename__ = "coupons"
+VALID_DISCOUNT_TYPES = {
+    "Percentage",
+    "Fixed",
+}
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+
+class CouponCreate(BaseModel):
+    coupon_code: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
     )
 
-    coupon_code: Mapped[str] = mapped_column(
-        String(50),
-        unique=True,
-        nullable=False,
-        index=True,
+    discount_type: str
+
+    discount_value: Decimal = Field(
+        ...,
+        gt=0,
     )
 
-    discount_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
-
-    discount_value: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-    )
-
-    minimum_order_value: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
+    minimum_order_value: Decimal = Field(
         default=Decimal("0.00"),
+        ge=0,
     )
 
-    maximum_discount: Mapped[Decimal | None] = mapped_column(
-        Numeric(10, 2),
-        nullable=True,
+    maximum_discount: Decimal | None = Field(
+        default=None,
+        gt=0,
     )
 
-    start_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
+    start_date: date
+
+    expiry_date: date
+
+    usage_limit: int | None = Field(
+        default=None,
+        gt=0,
     )
 
-    expiry_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
+    status: bool = True
+
+    @field_validator("coupon_code")
+    @classmethod
+    def validate_coupon_code(
+        cls,
+        value: str,
+    ) -> str:
+
+        value = value.strip().upper()
+
+        if not value:
+            raise ValueError(
+                "Coupon code cannot be empty"
+            )
+
+        return value
+
+    @field_validator("discount_type")
+    @classmethod
+    def validate_discount_type(
+        cls,
+        value: str,
+    ) -> str:
+
+        value = value.strip().title()
+
+        if value not in VALID_DISCOUNT_TYPES:
+            raise ValueError(
+                "Discount type must be Percentage or Fixed"
+            )
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_coupon_dates(self):
+
+        if self.expiry_date < self.start_date:
+            raise ValueError(
+                "Expiry date must be greater than or equal to start date"
+            )
+
+        if (
+            self.discount_type == "Percentage"
+            and self.discount_value > 100
+        ):
+            raise ValueError(
+                "Percentage discount cannot exceed 100"
+            )
+
+        if (
+            self.discount_type == "Fixed"
+            and self.maximum_discount is not None
+        ):
+            raise ValueError(
+                "Maximum discount is only applicable to Percentage coupons"
+            )
+
+        return self
+
+
+class CouponResponse(BaseModel):
+    id: int
+    coupon_code: str
+    discount_type: str
+    discount_value: Decimal
+    minimum_order_value: Decimal
+    maximum_discount: Decimal | None
+    start_date: date
+    expiry_date: date
+    usage_limit: int | None
+    usage_count: int
+    status: bool
+
+    model_config = ConfigDict(
+        from_attributes=True
     )
 
-    usage_limit: Mapped[int | None] = mapped_column(
-        nullable=True,
+
+class CouponApplyRequest(BaseModel):
+    coupon_code: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
     )
 
-    usage_count: Mapped[int] = mapped_column(
-        nullable=False,
-        default=0,
+    order_amount: Decimal = Field(
+        ...,
+        gt=0,
     )
 
-    status: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=True,
-        index=True,
-    )
+    @field_validator("coupon_code")
+    @classmethod
+    def validate_coupon_code(
+        cls,
+        value: str,
+    ) -> str:
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
+        return value.strip().upper()
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
+
+class CouponApplyResponse(BaseModel):
+    coupon_code: str
+    order_amount: Decimal
+    discount_amount: Decimal
+    final_amount: Decimal
+    message: str

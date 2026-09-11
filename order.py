@@ -1,185 +1,135 @@
+from datetime import datetime
+from decimal import Decimal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
+
+from utils.enums import OrderStatus, PaymentStatus
+
+
+class OrderCreate(BaseModel):
+    address_id: int = Field(
+        ...,
+        gt=0,
+    )
+
+    coupon_code: str | None = None
+
+
+class OrderItemResponse(BaseModel):
+    id: int
+    menu_item_id: int
+    quantity: int
+    unit_price: Decimal
+    item_total: Decimal
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+class OrderResponse(BaseModel):
+    id: int
+    customer_id: int
+    restaurant_id: int
+    address_id: int
+
+    subtotal: Decimal
+    delivery_fee: Decimal
+    discount: Decimal
+    tax: Decimal
+    total_amount: Decimal
+
+    order_status: OrderStatus
+    payment_status: PaymentStatus
+
+    created_at: datetime
+    updated_at: datetime
+
+    items: list[OrderItemResponse]
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+class OrderCancelResponse(BaseModel):
+    success: bool
+    message: str
+    order_id: int
+    order_status: OrderStatus
 
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import (
-    DateTime,
-    Enum as SQLEnum,
-    ForeignKey,
-    Numeric,
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import Base
 from utils.enums import OrderStatus, PaymentStatus
 
 
-class Order(Base):
-    __tablename__ = "orders"
-
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+class OrderCreate(BaseModel):
+    address_id: int = Field(
+        ...,
+        gt=0,
     )
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "customers.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    coupon_code: str | None = None
+
+
+class OrderItemResponse(BaseModel):
+    id: int
+    menu_item_id: int
+    quantity: int
+    unit_price: Decimal
+    item_total: Decimal
+
+    model_config = ConfigDict(
+        from_attributes=True
     )
 
-    restaurant_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "restaurants.id",
-        ),
-        nullable=False,
-        index=True,
+
+class OrderResponse(BaseModel):
+    id: int
+    customer_id: int
+    restaurant_id: int
+    address_id: int
+
+    subtotal: Decimal
+    delivery_fee: Decimal
+    discount: Decimal
+    tax: Decimal
+    total_amount: Decimal
+
+    order_status: OrderStatus
+    payment_status: PaymentStatus
+
+    created_at: datetime
+    updated_at: datetime
+
+    items: list[OrderItemResponse]
+
+    model_config = ConfigDict(
+        from_attributes=True
     )
 
-    address_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "addresses.id",
-        ),
-        nullable=False,
-        index=True,
-    )
 
-    # ========================================================
-    # DELIVERY PARTNER
-    # ========================================================
+class OrderCancelResponse(BaseModel):
+    success: bool
+    message: str
+    order_id: int
+    order_status: OrderStatus
 
-    delivery_partner_id: Mapped[int | None] = mapped_column(
-        ForeignKey(
-            "delivery_partners.id",
-            ondelete="SET NULL",
-        ),
-        nullable=True,
-        index=True,
-    )
 
-    # ========================================================
-    # ORDER AMOUNTS
-    # ========================================================
-
-    subtotal: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-    )
-
-    delivery_fee: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-    )
-
-    discount: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-        default=Decimal("0.00"),
-    )
-
-    tax: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-        default=Decimal("0.00"),
-    )
-
-    total_amount: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-    )
-
-    # ========================================================
-    # ORDER STATUS
-    # ========================================================
-
-    order_status: Mapped[OrderStatus] = mapped_column(
-        SQLEnum(
-            OrderStatus,
-            name="order_status",
-        ),
-        nullable=False,
-        default=OrderStatus.PENDING,
-        index=True,
-    )
-
-    payment_status: Mapped[PaymentStatus] = mapped_column(
-        SQLEnum(
-            PaymentStatus,
-            name="payment_status",
-        ),
-        nullable=False,
-        default=PaymentStatus.PENDING,
-        index=True,
-    )
-
-    # ========================================================
-    # TIMESTAMPS
-    # ========================================================
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
-    )
-
-    # ========================================================
-    # RELATIONSHIPS
-    # ========================================================
-
-    customer = relationship(
-        "Customer",
-        foreign_keys=[customer_id],
-    )
-
-    restaurant = relationship(
-        "Restaurant",
-        foreign_keys=[restaurant_id],
-    )
-
-    address = relationship(
-        "Address",
-        foreign_keys=[address_id],
-    )
-
-    delivery_partner = relationship(
-        "DeliveryPartner",
-        back_populates="orders",
-        foreign_keys=[delivery_partner_id],
-    )
-
-    items = relationship(
-        "OrderItem",
-        back_populates="order",
-        cascade="all, delete-orphan",
-    )
-
-    tracking_history = relationship(
-    "OrderTracking",
-    back_populates="order",
-    cascade="all, delete-orphan",
-    order_by="OrderTracking.timestamp",
-)
-
-    payment = relationship(
-    "Payment",
-    back_populates="order",
-    uselist=False,
-    cascade="all, delete-orphan",
-)
-
-    refunds = relationship(
-    "Refund",
-    back_populates="order",
-    cascade="all, delete-orphan",
-)
-
+class OrderSearchResult(BaseModel):
+    items: list[OrderResponse]
+    page: int
+    limit: int
+    total: int
+    pages: int   

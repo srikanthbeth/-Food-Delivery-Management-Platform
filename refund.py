@@ -1,89 +1,69 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import (
-    DateTime,
-    Enum as SQLEnum,
-    ForeignKey,
-    Numeric,
-    String,
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from database import Base
 from utils.enums import PaymentTransactionStatus
 
 
-class Refund(Base):
-    __tablename__ = "refunds"
+class RefundCreate(BaseModel):
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+    amount: Decimal = Field(
+        ...,
+        gt=0,
     )
 
-    payment_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "payments.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    reason: str = Field(
+        ...,
+        min_length=3,
+        max_length=500,
     )
 
-    order_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "orders.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    refund_transaction_id: str = Field(
+        ...,
+        min_length=3,
+        max_length=100,
     )
 
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-    )
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
 
-    reason: Mapped[str] = mapped_column(
-        String(500),
-        nullable=False,
-    )
+        value = value.strip()
 
-    refund_transaction_id: Mapped[str] = mapped_column(
-        String(100),
-        unique=True,
-        nullable=False,
-        index=True,
-    )
+        if not value:
+            raise ValueError(
+                "Refund reason cannot be empty"
+            )
 
-    refund_status: Mapped[PaymentTransactionStatus] = mapped_column(
-        SQLEnum(
-            PaymentTransactionStatus,
-            name="refund_status",
-        ),
-        nullable=False,
-        default=PaymentTransactionStatus.SUCCESSFUL,
-        index=True,
-    )
+        return value
 
-    refunded_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
-        nullable=True,
-    )
+    @field_validator("refund_transaction_id")
+    @classmethod
+    def validate_transaction_id(cls, value: str) -> str:
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-    )
+        value = value.strip()
 
-    payment = relationship(
-        "Payment",
-        back_populates="refunds",
-    )
+        if not value:
+            raise ValueError(
+                "Refund transaction ID cannot be empty"
+            )
 
-    order = relationship(
-        "Order",
-        back_populates="refunds",
+        return value
+
+
+class RefundResponse(BaseModel):
+
+    id: int
+    payment_id: int
+    order_id: int
+    amount: Decimal
+    reason: str
+    refund_transaction_id: str
+    refund_status: PaymentTransactionStatus
+    refunded_at: datetime | None
+    created_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True
     )

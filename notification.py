@@ -1,63 +1,50 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from database import Base
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class Notification(Base):
-    __tablename__ = "notifications"
+class NotificationCreate(BaseModel):
+    customer_id: int = Field(..., gt=0)
+    order_id: int | None = Field(default=None, gt=0)
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True,
+    notification_type: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
     )
 
-    customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+    title: str = Field(
+        ...,
+        min_length=3,
+        max_length=150,
     )
 
-    order_id: Mapped[int | None] = mapped_column(
-        ForeignKey("orders.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
+    message: str = Field(
+        ...,
+        min_length=3,
+        max_length=2000,
     )
 
-    notification_type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-        index=True,
-    )
 
-    title: Mapped[str] = mapped_column(
-        String(150),
-        nullable=False,
-    )
+class NotificationResponse(BaseModel):
+    id: int
+    customer_id: int
+    order_id: int | None
 
-    message: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
+    notification_type: str
+    title: str
+    message: str
 
-    is_read: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        index=True,
-    )
+    is_read: bool
+    created_at: datetime
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False,
-        index=True,
-    )
+    model_config = ConfigDict(from_attributes=True)
 
-    customer = relationship("Customer")
 
-    order = relationship("Order")
+class NotificationReadResponse(BaseModel):
+    success: bool
+    message: str
+    notification_id: int
+    is_read: bool
 
